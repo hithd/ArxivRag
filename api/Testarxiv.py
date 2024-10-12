@@ -1,3 +1,4 @@
+import os
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -14,3 +15,5 @@ loader = ArxivLoader(
 )
 docs = loader.load()
 print(docs[0].page_content)
+os.environ["OPENAI_API_KEY"] = 'sk-gKrFRQIZQWfNyAy949C7B08180C2453086Cc61C8355fB64f'
+os.environ["OPENAI_API_BASE"] = 'https://api.bianxie.ai/v1'
