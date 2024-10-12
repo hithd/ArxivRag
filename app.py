@@ -2,6 +2,7 @@
 import os
 import time
 import tempfile
+import traceback
 import streamlit as st
 from streamlit_chat import message
 from rag import ChatPDF
@@ -22,6 +23,8 @@ def initialize_session_state():
         st.session_state["current_page"] = "PDF Chat"
     if "api_configured" not in st.session_state:
         st.session_state["api_configured"] = False
+    if "stored_arxiv_docs" not in st.session_state:
+        st.session_state["stored_arxiv_docs"] = set()
 
 def display_messages():
     for i, (msg, is_user) in enumerate(st.session_state["messages"]):
@@ -41,14 +44,23 @@ def process_input(input_type):
                     agent_text = st.session_state["assistant"].ask_pdf(user_text, selected_pdf)
                 else:
                     agent_text = "Please select a PDF document first."
-            else:  # arxiv
+            elif input_type == "arxiv":
                 max_docs = st.session_state.get("max_docs", 2)
-                arxiv_metadata = st.session_state["assistant"].get_arxiv_metadata(user_text, max_docs)
-                st.session_state["arxiv_results"] = arxiv_metadata
-                agent_text = st.session_state["assistant"].ask_arxiv(user_text, max_docs)
+                agent_text, sources = st.session_state["assistant"].ask_arxiv(user_text, max_docs)
+            else:  # local_arxiv
+                agent_text = st.session_state["assistant"].ask_local_arxiv(user_text)
 
         st.session_state["messages"].append((user_text, True))
         st.session_state["messages"].append((agent_text, False))
+        
+        if input_type == "arxiv":
+            st.subheader("Sources:")
+            for source in sources:
+                st.write(f"Title: {source['title']}")
+                st.write(f"Authors: {source['authors']}")
+                st.write(f"Published: {source['published']}")
+                st.write(f"URL: {source['pdf_url']}")
+                st.write("---")
 
 def read_and_save_files():
     if not st.session_state["api_configured"]:
@@ -100,31 +112,102 @@ def pdf_chat_page():
     st.subheader("Chat")
     display_messages()
     st.text_input("Message", key="pdf_input", on_change=process_input, args=("pdf",))
-
 def arxiv_chat_page():
+    if "added_articles" not in st.session_state:
+        st.session_state.added_articles = set()
     st.header("ArXiv Chat")
     
-    st.subheader("ArXiv Search Settings")
-    st.session_state["max_docs"] = st.slider("Number of ArXiv documents to retrieve", 1, 10, 2)
+    if not st.session_state["api_configured"]:
+        st.error("Please configure the API settings first.")
+        return
 
-    st.subheader("Chat")
-    display_messages()
-    st.text_input("Message", key="arxiv_input", on_change=process_input, args=("arxiv",))
+    if st.session_state["assistant"] is None:
+        st.error("Assistant is not initialized. Please configure the API settings first.")
+        return
+    
+    st.subheader("ArXiv Search")
+    search_query = st.text_input("Enter search query:")
+    time_period = st.selectbox("Select time period:", ["week", "month"])
+    max_results = st.slider("Number of results to retrieve:", 1, 50, 10)
+    
+    if st.button("Search ArXiv"):
+        if search_query:
+            with st.spinner("Searching ArXiv..."):
+                try:
+                    results = st.session_state["assistant"].search_recent_arxiv(search_query, time_period, max_results)
+                    st.session_state["arxiv_results"] = results
+                except Exception as e:
+                    st.error(f"An error occurred while searching ArXiv: {str(e)}")
+                    st.write(f"Exception type: {type(e)}")
+                    st.write(f"Exception args: {e.args}")
+                    st.write("Traceback:")
+                    st.code(traceback.format_exc())
+        else:
+            st.warning("Please enter a search query.")
 
     if st.session_state.get("arxiv_results"):
-        st.subheader("ArXiv Search Results")
-        for result in st.session_state["arxiv_results"]:
-            st.write(f"Title: {result['title']}")
-            st.write(f"Authors: {result['authors']}")
-            st.write(f"Summary: {result['summary']}")
-            st.write("---")
+        st.header("ArXiv Search Results", divider='rainbow')
+        
+        for i, result in enumerate(st.session_state["arxiv_results"]):
+            
+            with st.expander(f"{i+1}. {result['title']}", expanded=False):
+                    # Enlarged title inside the expander
+                st.markdown(f"<h2 style='color:#4B9CD3;'>{result['title']}</h2>", unsafe_allow_html=True)
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"**Authors:** {result['authors']}")
+                    st.markdown("**Summary:**")
+                    st.markdown(f"<p style='text-align: justify;'>{result['summary']}</p>", unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown(f"**Published:** {result['published'].strftime('%Y-%m-%d')}")
+                    st.markdown(f"[View PDF]({result['pdf_url']})")
+                
+                if st.button(f"Add to Knowledge Base", key=f"add_{i}"):
+                    doc_metadata = {
+                        "id": result['id'],
+                        "title": result['title'],
+                        "authors": result['authors'],
+                        "pdf_url": result['pdf_url']
+                    }
+                    with st.spinner("Loading and processing full text..."):
+                        try:
+                            st.session_state["assistant"].ingest_arxiv(result['id'], doc_metadata)
+                            st.session_state["stored_arxiv_docs"].add(result['id'])
+                            st.success(f"Added '{result['title']}' to the knowledge base.")
+                        except Exception as e:
+                            st.error(f"Error adding document to knowledge base: {str(e)}")
+
+ # Display the list of added documents
+    with st.expander("📄 Added Documents", expanded=True):
+        if st.session_state["stored_arxiv_docs"]:
+            st.markdown("### Documents in Knowledge Base:")
+            for doc in st.session_state["stored_arxiv_docs"]:
+                st.markdown(f"- {doc}")
+        else:
+            st.write("No documents added yet.")
+
+    st.subheader("Chat")
+    chat_mode = st.radio("Select chat mode:", ["Direct ArXiv", "Stored Knowledge Base"])
+    
+    if chat_mode == "Direct ArXiv":
+        st.session_state["max_docs"] = st.slider("Number of ArXiv documents to retrieve", 1, 10, 2)
+        st.text_input("Message", key="arxiv_input", on_change=process_input, args=("arxiv",))
+    else:
+        if not st.session_state["stored_arxiv_docs"]:
+            st.warning("No documents stored in the knowledge base. Please add some documents first.")
+        else:
+            st.text_input("Message", key="local_arxiv_input", on_change=process_input, args=("local_arxiv",))
+
+    display_messages()
 
 def api_settings_page():
     st.header("API Settings")
 
     api_choice = st.radio("Select API to use:", ("OpenAI", "Local Ollama"))
     api_key = st.text_input("OpenAI API Key", type="password")
-    api_base = st.text_input("OpenAI API Base URL", value="https://api.openai.com/v1")
+    api_base = st.text_input("OpenAI API Base URL", value="https://api.bianxie.ai/v1")
     model = "qwen2.5"
 
     if st.button("Set API Configuration"):
