@@ -4,12 +4,16 @@ from handlers.arxiv_handler import ArxivHandler
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langchain.schema.runnable import RunnablePassthrough
-
+import time
 class ChatPDF:
     def __init__(self, llm_model: str = "qwen2.5:3b", api_key: str = None, api_base: str = None, use_openai: bool = False):
+        start_time = time.time()
         self.model, self.embeddings = initialize_env(api_key, api_base, use_openai, llm_model)
+        end_time = time.time()
+        print(f"initialize_env 耗时: {end_time - start_time} 秒")
         self.pdf_handler = PDFHandler(self.embeddings)
         self.arxiv_handler = ArxivHandler(self.embeddings)
+        
 
         self.prompt = ChatPromptTemplate.from_template(
             """Answer the question based only on the context provided.

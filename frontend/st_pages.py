@@ -62,14 +62,15 @@ def process_input(input_type):
                     agent_text = "Please select a PDF document first."
                 sources = []  # No sources for PDF queries
             elif input_type == "arxiv":
-                max_docs = st.session_state.get("max_docs", 3)
+                max_docs = st.session_state.get("max_docs", 2)
                 agent_text, sources = st.session_state["assistant"].ask_arxiv(user_text, max_docs)
             else:  # local_arxiv
                 agent_text = st.session_state["assistant"].ask_local_arxiv(user_text)
                 sources = []  # No sources for local_arxiv queries
 
         st.session_state["messages"].append((user_text, True))
-        st.session_state["messages"].append((agent_text, False))
+        if(input_type != "arxiv" and not sources):
+            st.session_state["messages"].append((agent_text, False))
         
         formatted_response = agent_text
         if input_type == "arxiv" and sources:
@@ -79,8 +80,7 @@ def process_input(input_type):
                 formatted_response += f"* **Title:** {source['title']}\n"
                 formatted_response += f"  **Authors:** {source['authors']}\n"
                 formatted_response += f"  **Published:** {source['published']}\n"
-                formatted_response += f"  **URL:** {source['pdf_url']}\n\n"
-
+                
         st.session_state["messages"].append((formatted_response, False))
 
 def read_and_save_files():
@@ -234,14 +234,16 @@ def api_settings_page():
     api_choice = st.radio("Select API to use:", ("OpenAI", "Local Ollama"))
     api_key = st.text_input("OpenAI API Key", type="password")
     api_base = st.text_input("OpenAI API Base URL", value="https://api.bianxie.ai/v1")
-    model = "qwen2.5"
+    model = "qwen2.5:3b"
 
     if st.button("Set API Configuration"):
         use_openai = (api_choice == "OpenAI")
         try:
+            
             st.session_state["assistant"] = ChatPDF(llm_model=model, api_key=api_key, api_base=api_base, use_openai=use_openai)
             st.session_state["api_configured"] = True
             st.success("API Configuration set successfully!")
+            
         except Exception as e:
             st.error(f"Error setting API configuration: {str(e)}")
             st.session_state["api_configured"] = False

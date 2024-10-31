@@ -1,4 +1,4 @@
-# ChatPDF and ArXiv
+# Chat with ArXiv
 
 [English](#english-version) | [中文](#中文版)
 
@@ -20,8 +20,8 @@ Through this interactive application, users can:
 #### Installation
 1. Clone the repository:
    ```sh
-   git clone https://github.com/your-repo.git
-   cd your-repo
+   git clone https://github.com/hithd/ArxivRag.git
+   cd my-repo
    ```
 2. Create a virtual environment and install dependencies:
    ```sh
@@ -36,22 +36,19 @@ Through this interactive application, users can:
    streamlit run app.py
    ```
 
-### Examples and Code Snippets
-Here is an example on how to interact with the ArXiv chat page:
-```python
-st.header("ArXiv Search")
-search_query = st.text_input("Enter search query:")
-time_period = st.selectbox("Select time period:", ["week", "month"])
-max_results = st.slider("Number of results to retrieve:", 1, 50, 10)
 
-if st.button("Search ArXiv"):
-    if search_query:
-        with st.spinner("Searching ArXiv..."):
-            results = st.session_state["assistant"].search_recent_arxiv(search_query, time_period, max_results)
-            st.session_state["arxiv_results"] = results
-        else:
-            st.warning("Please enter a search query.")
-```
+### Image Demonstrations
+Below are examples depicting various parts of the webpage:
+- Example 1: OpenAI API setup: 
+![OpenAI](data/OpenAI.jpg)
+- Example 2: Local configuration with Ollama:
+![Ollama Configuration](data/ollamaApi.jpg)
+- Example 3: PDF interaction:
+![PDF Interaction](data/chatpdf.jpg)
+- Example 4: ArXiv interaction:
+![ArXiv Interaction](data/askarxiv.jpg)
+
+
 
 ### Project Structure
 ```
@@ -123,22 +120,19 @@ This project uses the MIT License. See the [LICENSE](LICENSE) file for more info
    streamlit run app.py
    ```
 
-### 示例和代码片段
-以下是如何在 ArXiv 聊天页面中进行搜索的示例代码：
-```python
-st.header("ArXiv Search")
-search_query = st.text_input("Enter search query:")
-time_period = st.selectbox("Select time period:", ["week", "month"])
-max_results = st.slider("Number of results to retrieve:", 1, 50, 10)
 
-if st.button("Search ArXiv"):
-    if search_query:
-        with st.spinner("Searching ArXiv..."):
-            results = st.session_state["assistant"].search_recent_arxiv(search_query, time_period, max_results)
-            st.session_state["arxiv_results"] = results
-        else:
-            st.warning("Please enter a search query.")
-```
+### 图示演示
+以下是网页不同部分的示例：
+- 示例 1：OpenAI API 设置： 
+![OpenAI](data/OpenAI.jpg)
+- 示例 2：本地 Ollama 配置：
+![Ollama Configuration](data/ollamaApi.jpg)
+- 示例 3：PDF 查询：
+![PDF Interaction](data/chatpdf.jpg)
+- 示例 4：ArXiv 查询：
+![ArXiv Interaction](data/askarxiv.jpg)
+
+
 
 ### 项目结构和文件组织
 ```
